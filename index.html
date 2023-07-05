@@ -1,0 +1,175 @@
+<!--
+    Project:    GymIQ
+    Author: Joseph Brocato
+    Decription: My goal for this project is to create a map that displays the best gyms in a given 
+                area, which is determined by a gym having an average of 3.5 stars or higher. This 
+                project will use the Google Maps API to:
+                    a. Load the map
+                    b. Center map around location given by user
+                    c. Gather desired radius from user 
+                    d. Find gyms within that radius that have >= 3.5 stars according to Google Places
+                    e. Display markers on the map with information about each place 
+                    f. Allow users to click and view more info about any particular gym
+                    Maybe:
+                        g. add directions so user can know how to get to gym from starting point 
+                        h. allow user to save favorite places
+                        i. display reviews
+    Start Date: Tuesday, June 20, 2023
+
+
+-->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>GymIQ</title>
+        <link rel="stylesheet" type="text/css" href="style.css">
+    </head>
+    
+    <body>
+        <h1 align="left">GymIQ </h1>
+
+        <h3> 
+            Search High-Quality Gyms Near You! 
+        </h3>
+
+        <h4>
+            This customized map will display all the gyms in the radius given of a city with at least a 3.5 star rating or higher.
+        </h4>
+
+        <div>
+            <label for="location-input">Starting Location:</label>
+            <input type="text" id="location-input" placeholder="Enter a location">
+            <br>
+            <label for="radius-input">Search Radius (in miles):</label>
+            <input type="number" id="radius-input" placeholder="Enter a search radius">
+            <br>
+            <button onclick="searchGyms()">Search</button>
+        </div>
+
+        <!--The div element for the map -->
+        <div id="map"></div>
+
+        <!-- JavaScript code -->
+        <script>
+            let map;
+            let service;
+            const markers = [];
+
+            function initMap() {
+                const center = {lat: 41.878, lng: -87.629};
+                map = new google.maps.Map(document.getElementById("map"), {
+                    zoom: 13,
+                    center: center,
+                });
+
+                // Create a PlacesService instance
+                service = new google.maps.places.PlacesService(map);
+            } // end initMap function
+
+
+            // Function to search for gyms in the given location and radius
+            function searchGyms() {
+                // Clear any previous markers from the map
+                clearMarkers();
+
+                // Get user input values
+                const locationInput = document.getElementById('location-input').value;
+                const radiusInputMiles = parseFloat(document.getElementById('radius-input').value);
+
+                // Convert miles to meters
+                const radiusInputMeters = radiusInputMiles * 1609.34;
+
+                // Perform a geocoding request to convert location input to coordinates
+                const geocoder = new google.maps.Geocoder();
+                geocoder.geocode({ address: locationInput }, function(results, status) {
+                    if (status === 'OK' && results[0]) {
+                        const location = results[0].geometry.location;
+
+                        // Update the map center and zoom to the user's location
+                        map.setCenter(location);
+                        map.setZoom(12);
+
+                        // Perform a nearby search for gyms
+                        service.nearbySearch({
+                            location: location,
+                            radius: radiusInputMeters,
+                            type: ['gym']
+                        }, callback);
+                    } else {
+                        alert('Geocode was not successful for the following reason: ' + status);
+                    }
+                });
+            } // end searchGyms function
+            
+
+            // Callback function to handle search results
+            function callback(results, status) {
+                if (status === google.maps.places.PlacesServiceStatus.OK) {
+                    const filteredResults = results.filter(function(place) {
+                        return place.rating >= 3.5;
+                    });
+
+                    // Clear any previous markers from the map
+                    clearMarkers();
+
+                    // Loop through the filtered results and create markers on the map
+                    for (let i = 0; i < filteredResults.length; i++) {
+                        createMarker(filteredResults[i]);
+                    }
+                }
+            }
+
+            // Function to create a marker for each gym
+            function createMarker(place) {
+                const marker = new google.maps.Marker({
+                    map: map,
+                    position: place.geometry.location,
+                    title: place.name
+                });
+
+                const placeRequest = {
+                    placeId: place.place_id,
+                    fields: ['website']
+                };
+
+                // Retrieve the website URL using Place Details API
+                service.getDetails(placeRequest, function (details, status) {
+                    if (status === google.maps.places.PlacesServiceStatus.OK) {
+                        const websiteUrl = details.website || '';
+                        const infoWindow = new google.maps.InfoWindow({
+                            content:
+                            '<strong><a href="' +
+                            websiteUrl +
+                            '" target="_blank">' +
+                            place.name +
+                            '</a></strong><br>' +
+                            'Rating: ' +
+                            place.rating +
+                            '<br>' +
+                            'Address: ' +
+                            place.vicinity
+                        });
+
+                        marker.addListener('click', function () {
+                            infoWindow.open(map, marker);
+                        });
+                    }
+                });
+
+                markers.push(marker);
+            } // end create marker function
+
+            function clearMarkers() {
+                for (let i = 0; i < markers.length; i++) {
+                    markers[i].setMap(null);
+                }
+                markers.length = 0;
+            }
+
+
+        </script>
+        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA-vgfberxlQvv9f49cuWFryCq5bpPKf8A&libraries=places&callback=initMap" async defer></script>
+
+        
+    </body>
+</html>
